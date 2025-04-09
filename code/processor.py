@@ -16,6 +16,16 @@ class ImageProcessor:
         gray = np.stack([gray] * 3, axis=-1)
         return gray
 
+    def calculate_binarization_threshold(self):
+        h, w = self.image.shape[:2]
+        if len(self.image.shape) == 3:
+            gray_image = self.convert_to_gray()
+        else:
+            gray_image = self.image
+
+        P = np.sum(gray_image) / (h * w)
+
+        return P
     
     def binarization(self, threshold=128):
         """
@@ -124,5 +134,50 @@ class ImageProcessor:
                         output[i, j] = 0
 
         return output[pad:-pad, pad:-pad]
+    
+
+    def detect_pupil(self, image=None, threshold_pupil=8, kernel_shape="square"):
+        """
+        Detect the pupil in the image using a simple thresholding method.
+        """
+        if image is None:
+            image = self.image
+        
+        binazation_threshold = self.calculate_binarization_threshold()
+        threshold = binazation_threshold / threshold_pupil
+
+        pupil_image = self.binarization(threshold)
+        pupil_image = self.convolute_binary(pupil_image, kernel_shape="square", operation="erosion")
+        # pupil_image = self.closing(pupil_image)
+        # pupil_image = self.opening(pupil_image)
+
+        vertical_projection = np.sum(pupil_image, axis=0)
+        horizontal_projection = np.sum(pupil_image, axis=1)
+
+        x, y = np.max(vertical_projection), np.max(horizontal_projection)
+
+        return pupil_image, x, y
+    
+    def detect_iris(self, image=None, threshold_iris=4, kernel_shape="square"):
+        """
+        Detect the iris in the image using a simple thresholding method.
+        """
+        if image is None:
+            image = self.image
+
+        binazation_threshold = self.calculate_binarization_threshold()
+        threshold = binazation_threshold / threshold_iris
+
+        iris_image = self.binarization(threshold)
+        iris_image = self.convolute_binary(iris_image, kernel_shape="square", operation="erosion")
+        # iris_image = self.closing(iris_image)
+        # iris_image = self.opening(iris_image)
+
+        vertical_projection = np.sum(iris_image, axis=0)
+        horizontal_projection = np.sum(iris_image, axis=1)
+
+        x, y = np.max(vertical_projection), np.max(horizontal_projection)
+
+        return iris_image, x, y
 
     
