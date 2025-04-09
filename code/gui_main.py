@@ -67,18 +67,17 @@ class ImageProcessorGUI(QWidget):
         self.binarization_label = QLabel("Binarization Threshold:")
         self.binarization_slider = QSlider(Qt.Orientation.Horizontal)
         self.binarization_slider.setMinimum(0)
-        self.binarization_slider.setMaximum(255)
-        self.binarization_slider.setValue(128) 
-        self.binarization_slider.valueChanged.connect(self.binarization)
+        self.binarization_slider.setMaximum(10)
+        self.binarization_slider.setValue(5) 
 
         # Add sliders to the layout
         self.slider_layout.addWidget(self.binarization_label)
         self.slider_layout.addWidget(self.binarization_slider)
         self.slider_layout.setSpacing(4)
 
+
         # Buttons layout
         self.button_layout = QVBoxLayout()
-
 
         # Morphological Operations
         self.morphological_operations_layout = QHBoxLayout()
@@ -91,27 +90,16 @@ class ImageProcessorGUI(QWidget):
         self.binary_kernel = self.kernel_shape_combo.currentText()
 
 
-        self.erosion_button = QPushButton("Errosion")
-        self.erosion_button.clicked.connect(self.erosion)
-        self.erosion_button.setStyleSheet("background-color: #d5006d; color: white;")  # Darker pink with white text
-        self.morphological_operations_layout.addWidget(self.erosion_button)
+        self.pupil_button = QPushButton("Detect pupil")
+        self.pupil_button.clicked.connect(self.detect_pupil)
+        self.pupil_button.setStyleSheet("background-color: #d5006d; color: white;") 
+        self.morphological_operations_layout.addWidget(self.pupil_button)
 
-        self.dilation_button = QPushButton("Dilation")
-        self.dilation_button.clicked.connect(self.dilation)
-        self.dilation_button.setStyleSheet("background-color: #d5006d; color: white;")  # Darker pink with white text
-        self.morphological_operations_layout.addWidget(self.dilation_button)
+        self.iris_button = QPushButton("Detect iris")
+        self.iris_button.clicked.connect(self.detect_iris)
+        self.iris_button.setStyleSheet("background-color: #d5006d; color: white;") 
+        self.morphological_operations_layout.addWidget(self.iris_button)
 
-        self.opening_button = QPushButton("Opening")
-        self.opening_button.clicked.connect(self.opening)
-        self.opening_button.setStyleSheet("background-color: #d5006d; color: white;")  # Darker pink with white text
-        self.morphological_operations_layout.addWidget(self.opening_button)
-
-        self.closing_button = QPushButton("Closing")
-        self.closing_button.clicked.connect(self.closing)
-        self.closing_button.setStyleSheet("background-color: #d5006d; color: white;")  # Darker pink with white text
-        self.morphological_operations_layout.addWidget(self.closing_button)
-
-        
         # Buttons layout
         self.button_layout2 = QVBoxLayout()
 
@@ -218,38 +206,20 @@ class ImageProcessorGUI(QWidget):
         label.setPixmap(pixmap)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-    
-    def binarization(self):
-        """Apply binarization based on slider value."""
+
+    def detect_pupil(self):
+        """Apply morphological opening to detect pupil."""
         if self.image_processor:
             threshold_value = self.binarization_slider.value()
-            self.processed_image = self.image_processor.binarization(threshold_value)
+            self.processed_image, x, y = self.image_processor.detect_pupil(threshold_pupil=threshold_value,kernel_shape=self.binary_kernel)
             self.display_image(self.processed_image, self.processed_label)
 
-    def erosion(self):
-        """Apply erosion to the image."""
+    def detect_iris(self):  
+        """Apply morphological closing to detect iris."""
         if self.image_processor:
-            self.processed_image = self.image_processor.convolute_binary(self.image_processor.image, self.binary_kernel,'erosion')
+            threshold_value = self.binarization_slider.value()
+            self.processed_image, x, y = self.image_processor.detect_iris(threshold_iris=threshold_value,kernel_shape=self.binary_kernel)
             self.display_image(self.processed_image, self.processed_label)
-    
-    def dilation(self):
-        """Apply dilation to the image."""
-        if self.image_processor:
-            self.processed_image = self.image_processor.convolute_binary(self.image_processor.image, self.binary_kernel,'dilation')
-            self.display_image(self.processed_image, self.processed_label)
-
-    def opening(self):
-        """Apply opening to the image."""
-        if self.image_processor:
-            self.processed_image = self.image_processor.opening(self.binary_kernel)
-            self.display_image(self.processed_image, self.processed_label)
-
-    def closing(self):
-        """Apply closing to the image."""     
-        if self.image_processor:
-            self.processed_image = self.image_processor.closing(self.binary_kernel)
-            self.display_image(self.processed_image, self.processed_label)
-
 
     
     def apply_changes(self):
