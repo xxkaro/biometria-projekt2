@@ -36,27 +36,35 @@ class ImageProcessor:
         return binary.astype(np.uint8)
 
         
-    def opening(self, kernel=None):
+    def opening(self, image=None, kernel=None):
         """
         Opening of an image
         """
         if kernel is None:
-            kernel = self.get_kernel_bin("square")  
+            kernel = self.get_kernel_bin("square") 
 
-        eroded_img = self.convolute_binary(self.image, kernel_shape="square", operation="erosion")
+        if image is None:
+            image = self.image 
 
-        return self.convolute_binary(eroded_img, kernel_shape="square", operation="dilation") 
+        image = self.convolute_binary(image, kernel_shape="square", operation="erosion")
+        image = self.convolute_binary(image, kernel_shape="square", operation="dilation") 
 
-    def closing(self, kernel=None):  
+        return image
+
+    def closing(self, image=None, kernel=None):  
         """
         Closing of an image
         """
         if kernel is None:
             kernel = self.get_kernel_bin("square") 
+        
+        if image is None:
+            image = self.image
 
-        dilated_img = self.convolute_binary(self.image, kernel_shape="square", operation="dilation")
+        image = self.convolute_binary(image, kernel_shape="square", operation="dilation")
+        image = self.convolute_binary(image, kernel_shape="square", operation="erosion")
 
-        return self.convolute_binary(dilated_img, kernel_shape="square", operation="erosion")
+        return image
     
     def get_kernel_bin(self, shape="square"):
         """Generate a kernel based on the selected shape."""
@@ -136,7 +144,7 @@ class ImageProcessor:
         return output[pad:-pad, pad:-pad]
     
 
-    def detect_pupil(self, image=None, threshold_pupil=8, kernel_shape="square"):
+    def detect_pupil(self, image=None, threshold_pupil=9, kernel_shape="square"):
         """
         Detect the pupil in the image using a simple thresholding method.
         """
@@ -148,8 +156,9 @@ class ImageProcessor:
 
         pupil_image = self.binarization(threshold)
         pupil_image = self.convolute_binary(pupil_image, kernel_shape="square", operation="erosion")
-        # pupil_image = self.closing(pupil_image)
-        # pupil_image = self.opening(pupil_image)
+        pupil_image = self.opening(pupil_image)
+        pupil_image = self.closing(pupil_image)
+        pupil_image = self.closing(pupil_image, "cross")
 
         vertical_projection = np.sum(pupil_image, axis=0)
         horizontal_projection = np.sum(pupil_image, axis=1)
@@ -158,7 +167,7 @@ class ImageProcessor:
 
         return pupil_image, x, y
     
-    def detect_iris(self, image=None, threshold_iris=4, kernel_shape="square"):
+    def detect_iris(self, image=None, threshold_iris=3, kernel_shape="square"):
         """
         Detect the iris in the image using a simple thresholding method.
         """
@@ -170,8 +179,9 @@ class ImageProcessor:
 
         iris_image = self.binarization(threshold)
         iris_image = self.convolute_binary(iris_image, kernel_shape="square", operation="erosion")
-        # iris_image = self.closing(iris_image)
-        # iris_image = self.opening(iris_image)
+        iris_image = self.opening(iris_image)
+        iris_image = self.closing(iris_image)
+        iris_image = self.closing(iris_image, "cross")
 
         vertical_projection = np.sum(iris_image, axis=0)
         horizontal_projection = np.sum(iris_image, axis=1)
