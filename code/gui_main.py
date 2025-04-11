@@ -32,7 +32,6 @@ class ImageProcessorGUI(QWidget):
         self.image_path = None  
         self.image_processor = None  
         self.processed_image = None  
-        self.binary_kernel = None
 
         self.big_layout = QHBoxLayout()
         # Menu bar
@@ -82,12 +81,6 @@ class ImageProcessorGUI(QWidget):
         # Morphological Operations
         self.morphological_operations_layout = QHBoxLayout()
         #add dropdown to choose kernel shape
-        self.kernel_shape_label = QLabel("Select Kernel Shape:")
-        self.kernel_shape_combo = QComboBox()
-        self.kernel_shape_combo.addItems(["square", "cross", "vertical_line", "horizontal_line"])
-        self.morphological_operations_layout.addWidget(self.kernel_shape_label)
-        self.morphological_operations_layout.addWidget(self.kernel_shape_combo)
-        self.binary_kernel = self.kernel_shape_combo.currentText()
 
 
         self.pupil_button = QPushButton("Detect pupil")
@@ -211,15 +204,41 @@ class ImageProcessorGUI(QWidget):
         """Apply morphological opening to detect pupil."""
         if self.image_processor:
             threshold_value = self.binarization_slider.value()
-            self.processed_image, x, y = self.image_processor.detect_pupil(threshold_pupil=threshold_value,kernel_shape=self.binary_kernel)
-            self.display_image(self.processed_image, self.processed_label)
+            self.processed_image, x, y, r = self.image_processor.detect_pupil(threshold_pupil=threshold_value)
+            image = self.processed_image
+            if image.dtype == bool or image.max() <= 1:
+                image = (image * 255).astype(np.uint8)
+
+            # 2. Jeśli obraz jest jednokanałowy (grayscale), konwertuj do BGR
+            if len(image.shape) == 2 or (len(image.shape) == 3 and image.shape[2] == 1):
+                display_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            else:
+                display_image = image.copy()
+            # Rysujemy okrąg: (image, center, radius, color, thickness)
+            print(f"X: {x}, Y: {y}, R: {r}")
+            print(f'image.shape: {image.shape}')
+            cv2.circle(display_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
+            self.display_image(display_image, self.processed_label)
 
     def detect_iris(self):  
         """Apply morphological closing to detect iris."""
         if self.image_processor:
             threshold_value = self.binarization_slider.value()
-            self.processed_image, x, y = self.image_processor.detect_iris(threshold_iris=threshold_value,kernel_shape=self.binary_kernel)
-            self.display_image(self.processed_image, self.processed_label)
+            self.processed_image, x, y, r = self.image_processor.detect_iris(threshold_iris=threshold_value)
+            image = self.processed_image
+            if image.dtype == bool or image.max() <= 1:
+                image = (image * 255).astype(np.uint8)
+
+            # 2. Jeśli obraz jest jednokanałowy (grayscale), konwertuj do BGR
+            if len(image.shape) == 2 or (len(image.shape) == 3 and image.shape[2] == 1):
+                display_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            else:
+                display_image = image.copy()
+            print(f"X: {x}, Y: {y}, R: {r}")
+            print(f'image.shape: {image.shape}')
+            # Rysujemy okrąg: (image, center, radius, color, thickness)
+            cv2.circle(display_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
+            self.display_image(display_image, self.processed_label)
 
     
     def apply_changes(self):
