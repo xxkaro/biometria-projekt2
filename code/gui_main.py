@@ -59,21 +59,6 @@ class ImageProcessorGUI(QWidget):
         self.image_layout.addWidget(self.original_label)
         self.image_layout.addWidget(self.processed_label)
 
-        # Sliders layout
-        self.slider_layout = QVBoxLayout()
-
-        # Binarization slider
-        self.binarization_label = QLabel("Binarization Threshold:")
-        self.binarization_slider = QSlider(Qt.Orientation.Horizontal)
-        self.binarization_slider.setMinimum(0)
-        self.binarization_slider.setMaximum(10)
-        self.binarization_slider.setValue(5) 
-
-        # Add sliders to the layout
-        self.slider_layout.addWidget(self.binarization_label)
-        self.slider_layout.addWidget(self.binarization_slider)
-        self.slider_layout.setSpacing(4)
-
 
         # Buttons layout
         self.button_layout = QVBoxLayout()
@@ -108,7 +93,6 @@ class ImageProcessorGUI(QWidget):
 
         # Layouts
         self.main_layout.addLayout(self.image_layout)
-        self.main_layout.addLayout(self.slider_layout)
         self.main_layout.addLayout(self.button_layout)
         self.main_layout.addLayout(self.morphological_operations_layout)
         self.main_layout.addLayout(self.button_layout2)
@@ -203,8 +187,7 @@ class ImageProcessorGUI(QWidget):
     def detect_pupil(self):
         """Apply morphological opening to detect pupil."""
         if self.image_processor:
-            threshold_value = self.binarization_slider.value()
-            self.processed_image, x, y, r = self.image_processor.detect_pupil(threshold_pupil=threshold_value)
+            self.processed_image, x, y, r = self.image_processor.detect_pupil()
             image = self.processed_image
             if image.dtype == bool or image.max() <= 1:
                 image = (image * 255).astype(np.uint8)
@@ -215,16 +198,13 @@ class ImageProcessorGUI(QWidget):
             else:
                 display_image = image.copy()
             # Rysujemy okrąg: (image, center, radius, color, thickness)
-            print(f"X: {x}, Y: {y}, R: {r}")
-            print(f'image.shape: {image.shape}')
             cv2.circle(display_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
             self.display_image(display_image, self.processed_label)
 
     def detect_iris(self):  
         """Apply morphological closing to detect iris."""
         if self.image_processor:
-            threshold_value = self.binarization_slider.value()
-            self.processed_image, x, y, r = self.image_processor.detect_iris(threshold_iris=threshold_value)
+            self.processed_image, x, y, r = self.image_processor.detect_iris()
             image = self.processed_image
             if image.dtype == bool or image.max() <= 1:
                 image = (image * 255).astype(np.uint8)
@@ -234,8 +214,6 @@ class ImageProcessorGUI(QWidget):
                 display_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             else:
                 display_image = image.copy()
-            print(f"X: {x}, Y: {y}, R: {r}")
-            print(f'image.shape: {image.shape}')
             # Rysujemy okrąg: (image, center, radius, color, thickness)
             cv2.circle(display_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
             self.display_image(display_image, self.processed_label)
@@ -252,7 +230,6 @@ class ImageProcessorGUI(QWidget):
             self.next_image = None 
             self.redo_action.setEnabled(False)
 
-            self.reset_slider_values()
     
     def undo(self):
         """Revert to the previous image."""
@@ -288,11 +265,6 @@ class ImageProcessorGUI(QWidget):
 
             self.display_image(self.original_image, self.processed_label)
             self.display_image(self.original_image, self.original_label)
-            self.reset_slider_values()
-
-    def reset_slider_values(self):
-        """Reset the slider values."""
-        self.binarization_slider.setValue(128)
 
     def save_image(self, format):
         """Save the processed image in the selected format."""
