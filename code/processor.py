@@ -36,7 +36,7 @@ class ImageProcessor:
         binary = np.where(gray > threshold, 255, 0)
         return binary.astype(np.uint8)
 
-    def detect_pupil(self, image=None, threshold_pupil=3.9):
+    def detect_pupil(self, image=None, threshold_pupil=5):
         """
         Detect the pupil in the image using a simple thresholding method and OpenCV morphology.
         """
@@ -48,25 +48,27 @@ class ImageProcessor:
 
         pupil_image = self.binarization(threshold).astype(np.uint8)
 
-        # Krok 1: Mocne closing (z większym kernel'em, aby zamknąć artefakty zewnętrzne)
-        kernel_close = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))  # Kwadratowy kernel 5x5
-        pupil_image = cv2.morphologyEx(pupil_image, cv2.MORPH_CLOSE, kernel_close)
 
         # Krok 2: Erozja (usuwanie nadmiaru blasków – to pomoże w usunięciu jasnych punktów)
         kernel_erode = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))  # Kwadratowy kernel 3x3
         pupil_image = cv2.erode(pupil_image, kernel_erode)
+                
+        kernel_erode = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))  # Kwadratowy kernel 3x3
+        pupil_image = cv2.erode(pupil_image, kernel_erode)
+
+        kernel_opening = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 1))  # Kwadratowy kernel 3x3
+        pupil_image = cv2.morphologyEx(pupil_image, cv2.MORPH_OPEN, kernel_opening)
 
         # Krok 3: Dylatacja (przywrócenie krawędzi źrenicy bez rozlewania blasków)
         kernel_dilate = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))  # Kwadratowy kernel 3x3
         pupil_image = cv2.dilate(pupil_image, kernel_dilate)
 
-        # Krok 4: Zamknięcie linii w poziomie (usuwa poziome artefakty, np. cienkie linie rzęs)
-        kernel_close_horizontal = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 5))  # Element w poziomie
-        pupil_image = cv2.morphologyEx(pupil_image, cv2.MORPH_CLOSE, kernel_close_horizontal)
+        for i in range(150):
+            kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))  # Kwadratowy kernel 5x5
+            pupil_image = cv2.morphologyEx(pupil_image, cv2.MORPH_CLOSE, kernel_close)
 
-        # Krok 5: Zamknięcie linii w pionie (usuwa pionowe artefakty, np. cienkie linie)
-        kernel_close_vertical = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 1))  # Element w pionie
-        pupil_image = cv2.morphologyEx(pupil_image, cv2.MORPH_CLOSE, kernel_close_vertical)
+        kernel_erode = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))  # Kwadratowy kernel 3x3
+        pupil_image = cv2.dilate(pupil_image, kernel_erode)
 
         
         vertical_projection = np.sum(pupil_image, axis=0) // 255
@@ -78,7 +80,8 @@ class ImageProcessor:
         x, y = np.argmin(vertical_projection), np.argmin(horizontal_projection)
         r_vertical = np.max(vertical_projection) - np.min(vertical_projection)
         r_horizontal = np.max(horizontal_projection) - np.min(horizontal_projection)
-        r = np.mean([r_vertical, r_horizontal, diagonal_projection_left, diagonal_projection_right]) // 2
+        # r = np.mean([r_vertical, r_horizontal, diagonal_projection_left, diagonal_projection_right]) // 2
+        r = np.mean([r_vertical, r_horizontal]) // 2
         r = r_vertical // 2
 
         return pupil_image, x, y, r
@@ -125,7 +128,6 @@ class ImageProcessor:
 
     def diagonal_projection(self):
         # Zakładamy, że self.image to obraz RGB
-        print(self.image.shape)
         h, w, c = self.image.shape
 
         # Konwersja do grayscale (prosty sposób: średnia z kanałów)
