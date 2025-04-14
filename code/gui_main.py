@@ -55,18 +55,21 @@ class ImageProcessorGUI(QWidget):
         self.processed_label.setFixedSize(400, 400)
         self.processed_label.setStyleSheet("border: 2px solid black;")
 
+        self.unwrapped_label = QLabel("Unwraped iris")
+        self.unwrapped_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.unwrapped_label.setFixedSize(400, 100)  # np. szeroki i wąski
+        self.unwrapped_label.setStyleSheet("border: 2px solid black;")
+        self.main_layout.addWidget(self.unwrapped_label)
+
         # Add labels to layout
         self.image_layout.addWidget(self.original_label)
         self.image_layout.addWidget(self.processed_label)
-
 
         # Buttons layout
         self.button_layout = QVBoxLayout()
 
         # Morphological Operations
         self.morphological_operations_layout = QHBoxLayout()
-        #add dropdown to choose kernel shape
-
 
         self.pupil_button = QPushButton("Detect pupil")
         self.pupil_button.clicked.connect(self.detect_pupil)
@@ -77,6 +80,12 @@ class ImageProcessorGUI(QWidget):
         self.iris_button.clicked.connect(self.detect_iris)
         self.iris_button.setStyleSheet("background-color: #d5006d; color: white;") 
         self.morphological_operations_layout.addWidget(self.iris_button)
+
+        self.unwrap_button = QPushButton("Unwrap Iris")
+        self.unwrap_button.clicked.connect(self.unwrap_iris)
+        self.unwrap_button.setStyleSheet("background-color: #d5006d; color: white;")
+        self.morphological_operations_layout.addWidget(self.unwrap_button)
+
 
         # Buttons layout
         self.button_layout2 = QVBoxLayout()
@@ -197,9 +206,11 @@ class ImageProcessorGUI(QWidget):
                 display_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             else:
                 display_image = image.copy()
+            original_image = self.original_image.copy()
             # Rysujemy okrąg: (image, center, radius, color, thickness)
-            cv2.circle(display_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
+            cv2.circle(original_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
             self.display_image(display_image, self.processed_label)
+            self.display_image(original_image, self.original_label)
 
     def detect_iris(self):  
         """Apply morphological closing to detect iris."""
@@ -215,8 +226,28 @@ class ImageProcessorGUI(QWidget):
             else:
                 display_image = image.copy()
             # Rysujemy okrąg: (image, center, radius, color, thickness)
-            cv2.circle(display_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
+            original_image = self.original_image.copy()
+            cv2.circle(original_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
             self.display_image(display_image, self.processed_label)
+            self.display_image(original_image, self.original_label)
+
+    def unwrap_iris(self):
+        """Unwrap the iris image."""
+        if self.image_processor:    
+            self.processed_image, x, y, r = self.image_processor.detect_iris()
+            img, x_pupil, y_pupil, r_pupil = self.image_processor.detect_pupil()
+
+            # Weź aktualny obraz (np. grayscale)
+            image = self.image_processor.image
+
+            h, w = self.processed_image.shape[:2]
+            unwrapped = self.image_processor.unwrap_iris(image, (x, y), r_pupil, r, h, w)
+
+            display_image = unwrapped.copy()
+
+            # Wyświetl na nowym labelu (upewnij się, że go masz!)
+            self.display_image(display_image, self.unwrapped_label)
+
 
     
     def apply_changes(self):
@@ -265,6 +296,7 @@ class ImageProcessorGUI(QWidget):
 
             self.display_image(self.original_image, self.processed_label)
             self.display_image(self.original_image, self.original_label)
+            self.display_image(None, self.unwrapped_label)
 
     def save_image(self, format):
         """Save the processed image in the selected format."""

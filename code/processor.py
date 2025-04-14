@@ -36,7 +36,7 @@ class ImageProcessor:
         binary = np.where(gray > threshold, 255, 0)
         return binary.astype(np.uint8)
 
-    def detect_pupil(self, image=None, threshold_pupil=5):
+    def detect_pupil(self, image=None, threshold_pupil=4.5):
         """
         Detect the pupil in the image using a simple thresholding method and OpenCV morphology.
         """
@@ -60,8 +60,9 @@ class ImageProcessor:
         pupil_image = cv2.morphologyEx(pupil_image, cv2.MORPH_OPEN, kernel_opening)
 
         # Krok 3: Dylatacja (przywrócenie krawędzi źrenicy bez rozlewania blasków)
-        kernel_dilate = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))  # Kwadratowy kernel 3x3
-        pupil_image = cv2.dilate(pupil_image, kernel_dilate)
+        for i in range(3):
+            kernel_dilate = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))  # Kwadratowy kernel 3x3
+            pupil_image = cv2.dilate(pupil_image, kernel_dilate)
 
         for i in range(150):
             kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))  # Kwadratowy kernel 5x5
@@ -77,7 +78,18 @@ class ImageProcessor:
         diagonal_projection_left = np.sum(diagonal_projection_left) // 255
         diagonal_projection_right = np.sum(diagonal_projection_right) // 255
 
-        x, y = np.argmin(vertical_projection), np.argmin(horizontal_projection)
+        argmins_x = np.argpartition(vertical_projection, 5)[:5]
+        argmins_y = np.argpartition(horizontal_projection, 5)[:5]
+
+        # Posortuj te indeksy według odpowiadających im wartości
+        argmins_x_sorted = argmins_x[np.argsort(vertical_projection[argmins_x])]
+        argmins_y_sorted = argmins_y[np.argsort(horizontal_projection[argmins_y])]
+
+        # Wybierz środkowy (3. najmniejszy z 5)
+        x = argmins_x_sorted[2]
+        y = argmins_y_sorted[2]
+
+        # x, y = np.argmin(vertical_projection), np.argmin(horizontal_projection)
         r_vertical = np.max(vertical_projection) - np.min(vertical_projection)
         r_horizontal = np.max(horizontal_projection) - np.min(horizontal_projection)
         # r = np.mean([r_vertical, r_horizontal, diagonal_projection_left, diagonal_projection_right]) // 2
@@ -87,7 +99,7 @@ class ImageProcessor:
         return pupil_image, x, y, r
 
     
-    def detect_iris(self, image=None, threshold_iris=1.45):
+    def detect_iris(self, image=None, threshold_iris=1.3):
         """
         Detect the iris in the image using a simple thresholding method and OpenCV morphology.
         """
@@ -100,6 +112,9 @@ class ImageProcessor:
         iris_image = self.binarization(threshold).astype(np.uint8)
 
         # Krok 1: Delikatny opening – usuwanie rzęs bez wpływu na tęczówkę
+        kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))  # mniejszy kernel
+        iris_image = cv2.dilate(iris_image, kernel_dilate)
+
         kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))  # mniejszy kernel
         iris_image = cv2.morphologyEx(iris_image, cv2.MORPH_OPEN, kernel_open)
 
@@ -110,6 +125,10 @@ class ImageProcessor:
         # Krok 3: Delikatna dylatacja – przywracanie krawędzi, ale bez rozlewania
         kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))  # mniejszy kernel
         iris_image = cv2.dilate(iris_image, kernel_dilate)
+
+        for i in range(10):
+            kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))  # Kwadratowy kernel 5x5
+            iris_image = cv2.morphologyEx(iris_image, cv2.MORPH_CLOSE, kernel_close)
 
 
         vertical_projection = np.sum(iris_image, axis=0) // 255
@@ -141,3 +160,40 @@ class ImageProcessor:
         anti_diag_proj = np.array([np.sum(np.diag(flipped, k)) for k in range(-h + 1, w)]) // 255
 
         return main_diag_proj, anti_diag_proj
+
+    def unwrap_iris(self, image, center, pupil_radius, iris_radius, height=64, width=360):
+        """
+        Unwrap the iris region from polar to Cartesian coordinates,
+        excluding the pupil (starts from pupil_radius to iris_radius).
+        
+        Parameters:
+        - image: input eye image
+        - center: (x, y) center of both pupil and iris
+        - pupil_radius: radius of the pupil
+        - iris_radius: radius of the outer iris
+        """
+        x_center, y_center = center
+
+        r = np.linspace(pupil_radius, iris_radius, height)
+        theta = np.linspace(0, 2 * np.pi, width)
+
+        theta_grid, r_grid = np.meshgrid(theta, r)
+
+        x = x_center + r_grid * np.cos(theta_grid)
+        y = y_center + r_grid * np.sin(theta_grid)
+
+        map_x = x.astype(np.float32)
+        map_y = y.astype(np.float32)
+
+        if len(image.shape) == 3 and image.shape[2] == 3:
+            channels = [cv2.remap(image[:, :, c], map_x, map_y, interpolation=cv2.INTER_LINEAR,
+                                borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+                        for c in range(3)]
+            unwrapped = cv2.merge(channels)
+        else:
+            unwrapped = cv2.remap(image, map_x, map_y, interpolation=cv2.INTER_LINEAR,
+                                borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+
+        return unwrapped
+
+
