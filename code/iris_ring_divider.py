@@ -133,11 +133,3 @@ class IrisRingDivider:
                 mask[block & in_ring] = 0
 
         return mask.T  # match the shape of the normalized image
-
-    def calculate_hamming_distance(self, iris_code1, iris_code2):
-        if iris_code1.shape != iris_code2.shape:
-            raise ValueError("Iris codes must have the same shape to calculate Hamming distance.")
-
-        difference = np.bitwise_xor(iris_code1, iris_code2)
-        distance = np.sum(difference) / difference.size
-        return distance

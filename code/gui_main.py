@@ -101,13 +101,14 @@ class ImageProcessorGUI(QWidget):
         self.code_button.setStyleSheet("background-color: #d5006d; color: white;")
         self.morphological_operations_layout.addWidget(self.code_button)
 
+        self.compare_button = QPushButton("Compare Iris Codes")
+        self.compare_button.clicked.connect(self.compare_iris_codes)
+        self.compare_button.setStyleSheet("background-color: #d5006d; color: white;")
+        self.morphological_operations_layout.addWidget(self.compare_button)
+
         # Buttons layout
         self.button_layout2 = QVBoxLayout()
 
-        # Apply changes button
-        self.apply_button = QPushButton("Apply Changes")
-        self.apply_button.clicked.connect(self.apply_changes)
-        self.button_layout2.addWidget(self.apply_button)
     
         # Reset button
         self.reset_button = QPushButton("Reset")
@@ -133,24 +134,6 @@ class ImageProcessorGUI(QWidget):
         load_action = QAction("Load Image", self)
         load_action.triggered.connect(self.load_image)
         load_menu.addAction(load_action)
-
-        # Save menu
-        save_menu = menu_bar.addMenu("Save")
-        save_jpg_action = QAction("Save as JPG", self)
-        save_jpg_action.triggered.connect(lambda: self.save_image("jpg"))
-        save_menu.addAction(save_jpg_action)
-
-        save_png_action = QAction("Save as PNG", self)
-        save_png_action.triggered.connect(lambda: self.save_image("png"))
-        save_menu.addAction(save_png_action)
-
-        save_bmp_action = QAction("Save as BMP", self)
-        save_bmp_action.triggered.connect(lambda: self.save_image("bmp"))
-        save_menu.addAction(save_bmp_action)
-
-        exit_action = QAction("Exit", self)
-        exit_action.triggered.connect(QApplication.instance().quit)
-        save_menu.addAction(exit_action)
 
         # Edit menu with Undo/Redo
         edit_menu = menu_bar.addMenu("Edit")
@@ -290,19 +273,49 @@ class ImageProcessorGUI(QWidget):
             self.code_label.setPixmap(pixmap.scaled(self.code_label.size(), 
                                                     Qt.AspectRatioMode.KeepAspectRatio,
                                                     Qt.TransformationMode.SmoothTransformation))
-
-
     
-    def apply_changes(self):
-        """Apply the current modifications to the image, allowing further edits."""
-        if self.image_processor and self.processed_image is not None:
-            self.previous_image = self.image_processor.image.copy()
-            self.image_processor.image = self.processed_image.copy()
-            self.display_image(self.image_processor.image, self.original_label)
+    def compare_iris_codes(self): 
+        """Compare the iris codes of two images."""
+        if self.image_processor:
+            file_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.jpg *.jpeg *.png *.bmp *.tif)")
+            if file_path:
+                img = cv2.imread(file_path)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                self.display_image(img, self.processed_label)
 
-            self.undo_action.setEnabled(True)
-            self.next_image = None 
-            self.redo_action.setEnabled(False)
+                iris_code1 = self.image_processor.rings_division()
+                iris_code2 = self.image_processor.rings_division(img)
+
+                hamming_distance = self.image_processor.calculate_hamming_distance(iris_code1, iris_code2)
+
+                dialog = QDialog(self)
+                dialog.setWindowTitle("Iris Code Comparison")
+                layout = QVBoxLayout(dialog)
+
+                fig = Figure(figsize=(6, 3))
+                canvas = FigureCanvas(fig)
+                ax1 = fig.add_subplot(2, 1, 1)
+                ax2 = fig.add_subplot(2, 1, 2)
+
+                ax1.imshow(iris_code1, cmap='gray', aspect='auto')
+                ax1.set_title("Iris Code - eye 1")
+                ax1.axis('off')
+
+                ax2.imshow(iris_code2, cmap='gray', aspect='auto')
+                ax2.set_title("Iris Code - eye 2")
+                ax2.axis('off')
+
+                layout.addWidget(canvas)
+
+                if hamming_distance < 0.2:
+                   label = QLabel(f"Hamming distance: {hamming_distance:.2f} Iris codes match.")
+                else: 
+                     label = QLabel(f"Hamming distance: {hamming_distance:.2f} Iris codes do not match.")
+
+                layout.addWidget(label)
+
+                dialog.setLayout(layout)
+                dialog.exec()
 
     
     def undo(self):
@@ -342,20 +355,6 @@ class ImageProcessorGUI(QWidget):
             empty_pixmap = QPixmap()
             self.unwrapped_label.setPixmap(empty_pixmap)
             self.code_label.setPixmap(empty_pixmap)
-
-
-    def save_image(self, format):
-        """Save the processed image in the selected format."""
-        if self.processed_image is None:
-            QMessageBox.warning(self, "No Image", "Please process an image before saving.")
-            return
-        
-        file_path, _ = QFileDialog.getSaveFileName(self, f"Save Image as {format.upper()}", "", f"Images (*.{format})")
-        if file_path:
-            if not file_path.endswith(f".{format}"):
-                file_path += f".{format}"  # Ensure the file has the correct extension
-            
-            cv2.imwrite(file_path, cv2.cvtColor(self.processed_image, cv2.COLOR_RGB2BGR))
 
 
 if __name__ == "__main__":
