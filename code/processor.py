@@ -196,19 +196,29 @@ class ImageProcessor:
 
         return unwrapped
 
-    def rings_division(self):
+    def rings_division(self, image=None):
         """
         Divide the iris into rings and sectors.
         """
         x_pupil, y_pupil, r_pupil = self.detect_pupil()[1:]
         r_iris = self.detect_iris()[3]
 
-        divider = IrisRingDivider(self.image, x_pupil, y_pupil, r_pupil, r_iris)
+        if image is None:
+            image = self.image
+
+        divider = IrisRingDivider(image, x_pupil, y_pupil, r_pupil, r_iris)
         
         iris_code = divider.create_iris_code()
 
         #divider.display_normalized_iris()
         #divider.display_iris_code(iris_code)
 
-        print(divider.calculate_hamming_distance(iris_code, iris_code))
         return iris_code
+
+    def calculate_hamming_distance(self, iris_code1, iris_code2):
+        if iris_code1.shape != iris_code2.shape:
+            raise ValueError("Iris codes must have the same shape to calculate Hamming distance.")
+
+        difference = np.bitwise_xor(iris_code1, iris_code2)
+        distance = np.sum(difference) / difference.size
+        return distance
