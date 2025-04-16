@@ -31,7 +31,8 @@ class ImageProcessorGUI(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Bildverarbeitung - Image Processing")
+        self.setWindowTitle("Iris Recognition")
+        self.setGeometry(100, 100, 800, 600)
         self.image_path = None  
         self.image_processor = None  
         self.processed_image = None  
@@ -50,23 +51,27 @@ class ImageProcessorGUI(QWidget):
         # Original image
         self.original_label = QLabel("Original Image")
         self.original_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.original_label.setFixedSize(400, 400)
+        self.original_label.setMinimumSize(400, 400)
+        self.original_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.original_label.setStyleSheet("border: 2px solid black;")
 
         # Processed image
         self.processed_label = QLabel("Modified Image")
         self.processed_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.processed_label.setFixedSize(400, 400)
+        self.processed_label.setMinimumSize(400, 400)
+        self.processed_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.processed_label.setStyleSheet("border: 2px solid black;")
 
         self.unwrapped_label = QLabel("Unwraped iris")
         self.unwrapped_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.unwrapped_label.setFixedSize(300, 50)  # np. szeroki i wąski
+        self.unwrapped_label.setMinimumSize(300, 50) 
+        self.unwrapped_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.unwrapped_label.setStyleSheet("border: 2px solid black;")
 
         self.code_label = QLabel("Iris code")
         self.code_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.code_label.setFixedSize(500, 50)  # np. szeroki i wąski
+        self.code_label.setMinimumSize(500, 50)
+        self.code_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.code_label.setStyleSheet("border: 2px solid black;")
 
         # Add labels to layout
