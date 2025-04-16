@@ -32,7 +32,7 @@ class ImageProcessorGUI(QWidget):
         super().__init__()
 
         self.setWindowTitle("Iris Recognition")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(350, 200, 800, 600)
         self.image_path = None  
         self.image_processor = None  
         self.processed_image = None  
