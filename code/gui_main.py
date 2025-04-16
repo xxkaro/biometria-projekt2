@@ -1,3 +1,4 @@
+from io import BytesIO
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
@@ -6,7 +7,9 @@ import cv2
 import numpy as np
 from processor import ImageProcessor 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure    
+import matplotlib.pyplot as plt
+
 
 class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=6, height=6, dpi=100):
@@ -42,6 +45,7 @@ class ImageProcessorGUI(QWidget):
 
         # Image layout
         self.image_layout = QHBoxLayout()
+        self.image2_layout = QHBoxLayout()
 
         # Original image
         self.original_label = QLabel("Original Image")
@@ -57,13 +61,19 @@ class ImageProcessorGUI(QWidget):
 
         self.unwrapped_label = QLabel("Unwraped iris")
         self.unwrapped_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.unwrapped_label.setFixedSize(400, 100)  # np. szeroki i wąski
+        self.unwrapped_label.setFixedSize(300, 50)  # np. szeroki i wąski
         self.unwrapped_label.setStyleSheet("border: 2px solid black;")
-        self.main_layout.addWidget(self.unwrapped_label)
+
+        self.code_label = QLabel("Iris code")
+        self.code_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.code_label.setFixedSize(500, 50)  # np. szeroki i wąski
+        self.code_label.setStyleSheet("border: 2px solid black;")
 
         # Add labels to layout
         self.image_layout.addWidget(self.original_label)
         self.image_layout.addWidget(self.processed_label)
+        self.image2_layout.addWidget(self.unwrapped_label)
+        self.image2_layout.addWidget(self.code_label)
 
         # Buttons layout
         self.button_layout = QVBoxLayout()
@@ -86,6 +96,10 @@ class ImageProcessorGUI(QWidget):
         self.unwrap_button.setStyleSheet("background-color: #d5006d; color: white;")
         self.morphological_operations_layout.addWidget(self.unwrap_button)
 
+        self.code_button = QPushButton("Iris Code")
+        self.code_button.clicked.connect(self.iris_code)
+        self.code_button.setStyleSheet("background-color: #d5006d; color: white;")
+        self.morphological_operations_layout.addWidget(self.code_button)
 
         # Buttons layout
         self.button_layout2 = QVBoxLayout()
@@ -102,6 +116,7 @@ class ImageProcessorGUI(QWidget):
 
         # Layouts
         self.main_layout.addLayout(self.image_layout)
+        self.main_layout.addLayout(self.image2_layout)
         self.main_layout.addLayout(self.button_layout)
         self.main_layout.addLayout(self.morphological_operations_layout)
         self.main_layout.addLayout(self.button_layout2)
@@ -231,10 +246,8 @@ class ImageProcessorGUI(QWidget):
             cv2.circle(original_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
             self.display_image(display_image, self.processed_label)
             self.display_image(original_image, self.original_label)
-            rings = self.image_processor.rings_division()
             
             
-
     def unwrap_iris(self):
         """Unwrap the iris image."""
         if self.image_processor:    
@@ -244,13 +257,39 @@ class ImageProcessorGUI(QWidget):
             # Weź aktualny obraz (np. grayscale)
             image = self.image_processor.image
 
-            h, w = self.processed_image.shape[:2]
-            unwrapped = self.image_processor.unwrap_iris(image, (x, y), r_pupil, r, h, w)
+            unwrapped = self.image_processor.unwrap_iris(image, (x, y), r_pupil, r)
 
             display_image = unwrapped.copy()
 
             # Wyświetl na nowym labelu (upewnij się, że go masz!)
             self.display_image(display_image, self.unwrapped_label)
+
+
+    def iris_code(self):
+        """Unwrap the iris image and show as a matplotlib plot in QLabel."""
+        if self.image_processor:    
+            iris_code = self.image_processor.rings_division()
+
+            # Tworzymy wykres matplotlib
+            fig, ax = plt.subplots(figsize=(8, 1))  # Dopasuj rozmiar do QLabel
+            ax.imshow(iris_code, cmap='gray', aspect='auto')
+            ax.axis('off')
+            fig.tight_layout(pad=0)
+
+            # Zapisujemy wykres do bufora
+            buf = BytesIO()
+            fig.savefig(buf, format='png')
+            plt.close(fig)
+            buf.seek(0)
+
+            # Konwersja bufora do QPixmap
+            image = QImage.fromData(buf.getvalue())
+            pixmap = QPixmap.fromImage(image)
+
+            # Ustawienie pixmapy do QLabel
+            self.code_label.setPixmap(pixmap.scaled(self.code_label.size(), 
+                                                    Qt.AspectRatioMode.KeepAspectRatio,
+                                                    Qt.TransformationMode.SmoothTransformation))
 
 
     
@@ -300,7 +339,10 @@ class ImageProcessorGUI(QWidget):
 
             self.display_image(self.original_image, self.processed_label)
             self.display_image(self.original_image, self.original_label)
-            self.display_image(None, self.unwrapped_label)
+            empty_pixmap = QPixmap()
+            self.unwrapped_label.setPixmap(empty_pixmap)
+            self.code_label.setPixmap(empty_pixmap)
+
 
     def save_image(self, format):
         """Save the processed image in the selected format."""
