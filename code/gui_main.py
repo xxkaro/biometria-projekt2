@@ -212,6 +212,7 @@ class ImageProcessorGUI(QWidget):
             self.display_image(display_image, self.processed_label)
             self.display_image(original_image, self.original_label)
 
+
     def detect_iris(self):  
         """Apply morphological closing to detect iris."""
         if self.image_processor:
@@ -230,6 +231,9 @@ class ImageProcessorGUI(QWidget):
             cv2.circle(original_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
             self.display_image(display_image, self.processed_label)
             self.display_image(original_image, self.original_label)
+            rings = self.image_processor.rings_division()
+            
+            
 
     def unwrap_iris(self):
         """Unwrap the iris image."""

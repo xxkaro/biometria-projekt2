@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+from iris_ring_divider import IrisRingDivider
 
 
 class ImageProcessor:
@@ -196,4 +197,29 @@ class ImageProcessor:
 
         return unwrapped
 
+    def rings_division(self):
+        """
+        Divide the iris into rings and sectors.
+        """
+        x_pupil, y_pupil, r_pupil = self.detect_pupil()[1:]
+        r_iris = self.detect_iris()[3]
+
+        divider = IrisRingDivider(self.image, x_pupil, y_pupil, r_pupil, r_iris)
+        
+
+        iris_code = divider.create_iris_code()
+
+        divider.display_normalized_iris()
+
+        print(divider.calculate_hamming_distance(iris_code, iris_code))
+
+        
+        plt.figure(figsize=(10, 2))  # wider than tall
+        plt.imshow(iris_code, cmap='gray', aspect='auto')
+        plt.title('Iris Code: 8 Rings × 128 Bits')
+        plt.xlabel('Bit Index')
+        plt.ylabel('Ring Index')
+        plt.yticks(range(8), [f'R{i}' for i in range(8)])  # label rings R0..R7
+        plt.tight_layout()
+        plt.show()
 
