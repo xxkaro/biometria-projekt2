@@ -162,16 +162,10 @@ class ImageProcessor:
 
         return main_diag_proj, anti_diag_proj
 
-    def unwrap_iris(self, image, center, pupil_radius, iris_radius, height=64, width=360):
+    def unwrap_iris(self, image, center, pupil_radius, iris_radius, height=30, width=120):
         """
         Unwrap the iris region from polar to Cartesian coordinates,
         excluding the pupil (starts from pupil_radius to iris_radius).
-        
-        Parameters:
-        - image: input eye image
-        - center: (x, y) center of both pupil and iris
-        - pupil_radius: radius of the pupil
-        - iris_radius: radius of the outer iris
         """
         x_center, y_center = center
 
@@ -194,6 +188,11 @@ class ImageProcessor:
         else:
             unwrapped = cv2.remap(image, map_x, map_y, interpolation=cv2.INTER_LINEAR,
                                 borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        h = unwrapped.shape[0]
+        crop_margin = int(h * 0.02)
+        unwrapped = unwrapped[crop_margin : h - crop_margin, :]
+
+        return unwrapped
 
         return unwrapped
 
@@ -206,20 +205,10 @@ class ImageProcessor:
 
         divider = IrisRingDivider(self.image, x_pupil, y_pupil, r_pupil, r_iris)
         
-
         iris_code = divider.create_iris_code()
 
-        divider.display_normalized_iris()
+        #divider.display_normalized_iris()
+        #divider.display_iris_code(iris_code)
 
         print(divider.calculate_hamming_distance(iris_code, iris_code))
-
-        
-        plt.figure(figsize=(10, 2))  # wider than tall
-        plt.imshow(iris_code, cmap='gray', aspect='auto')
-        plt.title('Iris Code: 8 Rings × 128 Bits')
-        plt.xlabel('Bit Index')
-        plt.ylabel('Ring Index')
-        plt.yticks(range(8), [f'R{i}' for i in range(8)])  # label rings R0..R7
-        plt.tight_layout()
-        plt.show()
-
+        return iris_code
