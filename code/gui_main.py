@@ -258,28 +258,29 @@ class ImageProcessorGUI(QWidget):
         if self.image_processor:    
             iris_code = self.image_processor.rings_division()
 
-            # Tworzymy wykres matplotlib
-            fig, ax = plt.subplots(figsize=(8, 1))  # Dopasuj rozmiar do QLabel
-            ax.imshow(iris_code, cmap='gray', aspect='auto')
-            ax.axis('off')
+            # Create a figure and axes for displaying iris code image
+            fig, ax = plt.subplots(figsize=(8, 1))  # Adjust size to fit QLabel
+            self.display_iris_code_in_gui(ax, iris_code)  # Use display_iris_code_in_gui to generate plot
+            ax.axis('off')  # Hide axes for clean display
             fig.tight_layout(pad=0)
 
-            # Zapisujemy wykres do bufora
+            # Save the plot to a buffer
             buf = BytesIO()
             fig.savefig(buf, format='png')
             plt.close(fig)
             buf.seek(0)
 
-            # Konwersja bufora do QPixmap
+            # Convert buffer to QImage and then to QPixmap
             image = QImage.fromData(buf.getvalue())
             pixmap = QPixmap.fromImage(image)
 
-            # Ustawienie pixmapy do QLabel
+            # Set the pixmap to QLabel
             self.code_label.setPixmap(pixmap.scaled(self.code_label.size(), 
                                                     Qt.AspectRatioMode.KeepAspectRatio,
                                                     Qt.TransformationMode.SmoothTransformation))
+
     
-    def compare_iris_codes(self): 
+    def compare_iris_codes(self):
         """Compare the iris codes of two images."""
         if self.image_processor:
             file_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.jpg *.jpeg *.png *.bmp *.tif)")
@@ -288,39 +289,76 @@ class ImageProcessorGUI(QWidget):
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 self.display_image(img, self.processed_label)
 
+                # Generate iris codes using the updated intertwined version
                 iris_code1 = self.image_processor.rings_division()
                 iris_code2 = self.image_processor.rings_division(img)
 
+                # Calculate Hamming distance
                 hamming_distance = self.image_processor.calculate_hamming_distance(iris_code1, iris_code2)
 
+                # Create a dialog to display the result
                 dialog = QDialog(self)
                 dialog.setWindowTitle("Iris Code Comparison")
                 layout = QVBoxLayout(dialog)
 
-                fig = Figure(figsize=(6, 3))
+                # Create a Matplotlib figure for displaying iris codes
+                fig = Figure(figsize=(12, 6))  # Set a larger figure size for better clarity
                 canvas = FigureCanvas(fig)
                 ax1 = fig.add_subplot(2, 1, 1)
                 ax2 = fig.add_subplot(2, 1, 2)
 
-                ax1.imshow(iris_code1, cmap='gray', aspect='auto')
-                ax1.set_title("Iris Code - eye 1")
+                # Create images of iris codes like the first function
+                self.display_iris_code_in_gui(ax1, iris_code1)
+                ax1.set_title("Iris Code - Eye 1")
                 ax1.axis('off')
 
-                ax2.imshow(iris_code2, cmap='gray', aspect='auto')
-                ax2.set_title("Iris Code - eye 2")
+                self.display_iris_code_in_gui(ax2, iris_code2)
+                ax2.set_title("Iris Code - Eye 2")
                 ax2.axis('off')
 
                 layout.addWidget(canvas)
 
-                if hamming_distance < 0.2:
-                   label = QLabel(f"Hamming distance: {hamming_distance:.2f} Iris codes match.")
-                else: 
-                     label = QLabel(f"Hamming distance: {hamming_distance:.2f} Iris codes do not match.")
-
+                # Add the Hamming distance label
+                if hamming_distance < 0.22:
+                    label = QLabel(f"Hamming distance: {hamming_distance:.2f} — Iris codes match.")
+                else:
+                    label = QLabel(f"Hamming distance: {hamming_distance:.2f} — Iris codes do not match.")
                 layout.addWidget(label)
 
                 dialog.setLayout(layout)
                 dialog.exec()
+
+    def display_iris_code_in_gui(self, ax, iris_code, radial_res=64, angular_res=512):
+        """Helper function to display iris code in GUI format using Matplotlib."""
+        num_horizontal = 8    # Display rows
+        num_vertical = 256    # Display columns
+
+        # Create the display matrix to match 8x256
+        display_image = np.zeros((num_horizontal, num_vertical), dtype=np.uint8)
+
+        for i in range(num_horizontal):
+            for j in range(num_vertical):
+                # Map i, j to the original code coordinates
+                total_positions = angular_res  # because each bit-pair is linked to one angular step
+                bit_idx = j % 2  # even -> 0 (bit1), odd -> 1 (bit2)
+                angular_position = j // 2     # which original angular step to use
+
+                # Clamp: in case num_vertical is odd
+                if angular_position >= angular_res:
+                    angular_position = angular_res - 1
+
+                # Map the vertical section to the radial resolution
+                row_idx = int(i * radial_res / num_horizontal)
+
+                # Calculate the proper column in the flattened iris_code
+                col_idx = angular_position * 2 + bit_idx
+
+                display_image[i, j] = iris_code[row_idx, col_idx]
+
+        # Plot the iris code image on the provided axis
+        ax.imshow(display_image, cmap='gray', aspect='auto')
+
+
 
     
     def undo(self):
