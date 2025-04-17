@@ -187,38 +187,25 @@ class ImageProcessor:
         return main_diag_proj, anti_diag_proj
 
     def unwrap_iris(self, image, center, pupil_radius, iris_radius, height=30, width=120):
-        """
-        Unwrap the iris region from polar to Cartesian coordinates,
-        excluding the pupil (starts from pupil_radius to iris_radius).
-        """
-        x_center, y_center = center
+        x_pupil, y_pupil, r_pupil = self.detect_pupil()[1:]
+        r_iris = self.detect_iris()[3]
 
-        r = np.linspace(pupil_radius, iris_radius, height)
-        theta = np.linspace(0, 2 * np.pi, width)
+        if image is None:
+            image = self.image
 
-        theta_grid, r_grid = np.meshgrid(theta, r)
+        divider = IrisRingDivider(image, x_pupil, y_pupil, r_pupil, r_iris)
 
-        x = x_center + r_grid * np.cos(theta_grid)
-        y = y_center + r_grid * np.sin(theta_grid)
+        output = divider.normalize_iris(radial_res=height, angular_res=width)
 
-        map_x = x.astype(np.float32)
-        map_y = y.astype(np.float32)
+        # Normalize the output to [0, 255] range for display
+        output_min = np.min(output)
+        output_max = np.max(output)
+        output_normalized = 255 * (output - output_min) / (output_max - output_min)  # Normalize to [0, 255]
 
-        if len(image.shape) == 3 and image.shape[2] == 3:
-            channels = [cv2.remap(image[:, :, c], map_x, map_y, interpolation=cv2.INTER_LINEAR,
-                                borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-                        for c in range(3)]
-            unwrapped = cv2.merge(channels)
-        else:
-            unwrapped = cv2.remap(image, map_x, map_y, interpolation=cv2.INTER_LINEAR,
-                                borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-        h = unwrapped.shape[0]
-        crop_margin = int(h * 0.02)
-        unwrapped = unwrapped[crop_margin : h - crop_margin, :]
+        # Convert to uint8 for image compatibility
+        output_image = output_normalized.astype(np.uint8)
 
-        return unwrapped
-
-        return unwrapped
+        return output_image
 
     def rings_division(self, image=None):
         """
@@ -235,7 +222,7 @@ class ImageProcessor:
         iris_code = divider.create_iris_code()
 
         #divider.display_normalized_iris()
-        #divider.display_iris_code(iris_code)
+        #divider.display_iris_code()
 
         return iris_code
 
