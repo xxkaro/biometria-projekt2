@@ -328,35 +328,17 @@ class ImageProcessorGUI(QWidget):
                 dialog.setLayout(layout)
                 dialog.exec()
 
-    def display_iris_code_in_gui(self, ax, iris_code, radial_res=64, angular_res=512):
-        """Helper function to display iris code in GUI format using Matplotlib."""
-        num_horizontal = 8    # Display rows
-        num_vertical = 256    # Display columns
-
-        # Create the display matrix to match 8x256
-        display_image = np.zeros((num_horizontal, num_vertical), dtype=np.uint8)
-
-        for i in range(num_horizontal):
-            for j in range(num_vertical):
-                # Map i, j to the original code coordinates
-                total_positions = angular_res  # because each bit-pair is linked to one angular step
-                bit_idx = j % 2  # even -> 0 (bit1), odd -> 1 (bit2)
-                angular_position = j // 2     # which original angular step to use
-
-                # Clamp: in case num_vertical is odd
-                if angular_position >= angular_res:
-                    angular_position = angular_res - 1
-
-                # Map the vertical section to the radial resolution
-                row_idx = int(i * radial_res / num_horizontal)
-
-                # Calculate the proper column in the flattened iris_code
-                col_idx = angular_position * 2 + bit_idx
-
-                display_image[i, j] = iris_code[row_idx, col_idx]
+    def display_iris_code_in_gui(self, ax, iris_code):
+        """Displays the iris code (8x256) using Matplotlib on a given axis."""
+        # Remove the last dimension if present (reshape from (8, 256, 1) to (8, 256))
+        if iris_code.ndim == 3 and iris_code.shape[2] == 1:
+            iris_code = iris_code.squeeze(-1)
 
         # Plot the iris code image on the provided axis
-        ax.imshow(display_image, cmap='gray', aspect='auto')
+        ax.imshow(iris_code, cmap='gray', aspect='auto')
+        ax.set_title("Iris Code")
+        ax.axis('off')
+
 
 
 
