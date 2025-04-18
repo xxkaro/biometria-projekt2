@@ -9,34 +9,48 @@ class ImageProcessor:
         self.image = image
         
 
-    def convert_to_gray(self):
+    def convert_to_gray(self, image=None):
         """
         Convert the image to grayscale.
         """
-        gray = np.dot(self.image[..., :3], [0.114, 0.587, 0.299])
-        gray = gray.astype(np.uint8)
+        if image is None:
+            image = self.image
+        
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
         # Convert (H, W) → (H, W, 3) for GUI compatibility
         # gray = np.stack([gray] * 3, axis=-1)
         return gray
     
 
-    def calculate_binarization_threshold(self):
-        h, w = self.image.shape[:2]
-        if len(self.image.shape) == 3:
+    def calculate_binarization_threshold(self, image=None):
+        """
+        Calculate the binarization threshold for the image.
+        """
+        if image is None:
+            image = self.image
+
+        h, w = image.shape[:2]
+        if len(image.shape) == 3:
             gray_image = self.convert_to_gray()
         else:
-            gray_image = self.image
+            gray_image = image
 
         P = np.sum(gray_image) / (h * w)
 
         return P
     
     
-    def binarization(self, threshold=128):
+    def binarization(self, image=None, threshold=128):
         """
         Binarization of an image
         """
-        gray = self.convert_to_gray()
+        if image is None:
+            image = self.image
+
+        gray = self.convert_to_gray(image)
         binary = np.where(gray > threshold, 255, 0)
         return binary.astype(np.uint8)
     
@@ -48,10 +62,10 @@ class ImageProcessor:
         if image is None:
             image = self.image
 
-        binazation_threshold = self.calculate_binarization_threshold()
+        binazation_threshold = self.calculate_binarization_threshold(image)
         threshold = binazation_threshold / threshold_pupil
 
-        pupil_image = self.binarization(threshold).astype(np.uint8)
+        pupil_image = self.binarization(image, threshold).astype(np.uint8)
 
         pupil_image = cv2.medianBlur(pupil_image, 3)
 
@@ -100,10 +114,10 @@ class ImageProcessor:
         if image is None:
             image = self.image
 
-        binazation_threshold = self.calculate_binarization_threshold()
+        binazation_threshold = self.calculate_binarization_threshold(image)
         threshold = binazation_threshold / threshold_iris
 
-        iris_image = self.binarization(threshold).astype(np.uint8)
+        iris_image = self.binarization(image, threshold).astype(np.uint8)
         iris_image = cv2.medianBlur(iris_image, 3)
 
         kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))  
@@ -124,9 +138,9 @@ class ImageProcessor:
         kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))  
         iris_image = cv2.dilate(iris_image, kernel_dilate, iterations=3)
 
-        img, x, y, r = self.detect_pupil(iris_image)
+        img, x, y, r = self.detect_pupil(image)
 
-        r = self.estimate_iris_radius_binary(iris_image, (x, y), r, white_threshold_ratio=0.5)
+        r = self.estimate_iris_radius_binary(iris_image, (x, y), r, white_threshold_ratio=0.45)
 
         return iris_image, x, y, r
     
@@ -171,7 +185,7 @@ class ImageProcessor:
         return main_diag_proj, anti_diag_proj
     
 
-    def unwrap_iris(self, image, center, pupil_radius, iris_radius, height=30, width=120):
+    def unwrap_iris(self, image, height=30, width=120):
         x_pupil, y_pupil, r_pupil = self.detect_pupil()[1:]
         r_iris = self.detect_iris()[3]
 
@@ -212,6 +226,4 @@ class ImageProcessor:
         if iris_code1.shape != iris_code2.shape:
             raise ValueError("Iris codes must have the same shape to calculate Hamming distance.")
 
-        difference = np.bitwise_xor(iris_code1, iris_code2)
-        distance = np.sum(difference) / difference.size
-        return distance
+        return np.sum(iris_code1 != iris_code2) / iris_code1.size

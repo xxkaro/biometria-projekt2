@@ -105,7 +105,7 @@ class IrisRingDivider:
         return theta[mask] 
     
 
-    def gabor_filter_1d(self, signal, frequency=0.25, sigma=3):
+    def gabor_filter_1d(self, signal, frequency=0.3, sigma=3):
             length = len(signal)
             x = np.arange(-length // 2, length // 2)
             gabor_real = np.exp(-x**2 / (sigma**2)) * np.cos(2 * np.pi * frequency * x)
@@ -116,7 +116,7 @@ class IrisRingDivider:
             return real_response, imag_response
     
 
-    def create_iris_code(self, radial_res=64, angular_res=512, samples=128, gabor_freq=0.25, gabor_sigma=3):
+    def create_iris_code(self, radial_res=64, angular_res=512, samples=128, gabor_freq=0.35, gabor_sigma=3):
         normalized = self.normalize_iris(radial_res, angular_res)
         num_stripes = 8
         gabor_sigma = 0.5 * gabor_freq * np.pi
@@ -147,6 +147,7 @@ class IrisRingDivider:
             iris_code.append(interleaved_code) 
 
         iris_code_array = np.array(iris_code, dtype=np.uint8).reshape((8, 256, 1))
+
         return iris_code_array
 
 
@@ -187,7 +188,5 @@ class IrisRingDivider:
         if code1.shape != code2.shape:
             raise ValueError("Iris codes must have the same shape for Hamming distance calculation.")
         return np.sum(code1 != code2) / code1.size
-        # difference = np.bitwise_xor(code1, code2)
-        # distance = np.sum(difference) / difference.size
-        # return distance
+
 
