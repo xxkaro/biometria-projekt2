@@ -235,12 +235,8 @@ class ImageProcessorGUI(QWidget):
     def unwrap_iris(self):
         """Unwrap the iris image."""
         if self.image_processor:    
-            self.processed_image, x, y, r = self.image_processor.detect_iris()
-            img, x_pupil, y_pupil, r_pupil = self.image_processor.detect_pupil()
-
             image = self.image_processor.image
-
-            unwrapped = self.image_processor.unwrap_iris(image, (x, y), r_pupil, r)
+            unwrapped = self.image_processor.unwrap_iris(image)
 
             display_image = unwrapped.copy()
             self.display_image(display_image, self.unwrapped_label)
@@ -302,7 +298,7 @@ class ImageProcessorGUI(QWidget):
 
                 layout.addWidget(canvas)
 
-                if hamming_distance < 0.23:
+                if hamming_distance < 0.26:
                     label = QLabel(f"Hamming distance: {hamming_distance:.2f} — Iris codes match.")
                 else:
                     label = QLabel(f"Hamming distance: {hamming_distance:.2f} — Iris codes do not match.")
@@ -315,8 +311,7 @@ class ImageProcessorGUI(QWidget):
     def display_iris_code_in_gui(self, ax, iris_code):
         """Displays the iris code (8x256) using Matplotlib on a given axis."""
 
-        if iris_code.ndim == 3 and iris_code.shape[2] == 1:
-            iris_code = iris_code.squeeze(-1)
+        iris_code = iris_code.squeeze(axis=2) 
 
         ax.imshow(iris_code, cmap='gray', aspect='auto')
         ax.set_title("Iris Code")
