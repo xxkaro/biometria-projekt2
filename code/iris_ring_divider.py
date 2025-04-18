@@ -1,8 +1,8 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from scipy.ndimage import gaussian_filter
-from scipy.ndimage import convolve
+from scipy.ndimage import gaussian_filter, convolve1d
+
 
 class IrisRingDivider:
     def __init__(self, image, x_pupil, y_pupil, r_pupil, r_iris):
@@ -14,46 +14,6 @@ class IrisRingDivider:
         self.y_pupil = y_pupil
         self.r_pupil = r_pupil
         self.r_iris = r_iris
-
-    def apply_gabor_filter(self, image, frequency=0.3, theta=0):
-        # Image dimensions
-        img_height, img_width = image.shape
-        
-        # Parameters for vertical (y) and horizontal (x) kernels
-        sigma_y = 1 / (2 * np.pi * frequency)  # Vertical sigma (Gaussian)
-        sigma_x = 1  # Horizontal sigma, used for mean kernel
-
-        # Vertical kernel: Gaussian filter (1/8th of image height)
-        vertical_range = img_height // 8  # 1/8th of the height of the image
-        y = np.linspace(-vertical_range, vertical_range, 2 * vertical_range + 1)
-        y_kernel = np.exp(-0.5 * (y / sigma_y) ** 2)  # Gaussian in y-direction
-        y_kernel /= np.sum(y_kernel)  # Normalize the kernel
-
-        # Horizontal kernel: Mean filter (1/128th of image width)
-        horizontal_range = img_width // 128  # 1/128th of the width of the image
-        x_kernel = np.ones(horizontal_range) / horizontal_range  # Uniform filter for averaging
-        x_kernel = x_kernel.reshape(1, -1)  # Make it a 1D row vector for convolving horizontally
-
-        # Apply Gaussian filter in the vertical direction
-        vert_filtered = convolve(image, y_kernel[:, np.newaxis])  # Convolve along vertical axis
-        
-        # Apply mean filter in the horizontal direction
-        horiz_filtered = convolve(vert_filtered, x_kernel)  # Then convolve the result horizontally
-
-        # Compute the real and imaginary parts of the Gabor filter
-        # Real part (cosine-modulated Gaussian)
-        real_part = np.exp(-0.5 * (y[:, np.newaxis] / sigma_y) ** 2) * np.cos(2 * np.pi * frequency * y[:, np.newaxis])
-
-        # Imaginary part (sine-modulated Gaussian)
-        imag_part = np.exp(-0.5 * (y[:, np.newaxis] / sigma_y) ** 2) * np.sin(2 * np.pi * frequency * y[:, np.newaxis])
-
-        # Convolve with real and imaginary parts
-        real_response = convolve(horiz_filtered, real_part)
-        imag_response = convolve(horiz_filtered, imag_part)
-
-        return real_response, imag_response
-
-
 
     def normalize_iris(self, radial_res=64, angular_res=512):
         output = np.zeros((radial_res, angular_res), dtype=np.float32)
@@ -72,12 +32,12 @@ class IrisRingDivider:
             elif ring_index in [4, 5]:
                 angle_limit = np.deg2rad(33.5)
                 block = ((np.abs(dense_theta - np.pi/2) <= angle_limit) |
-                        (np.abs(dense_theta - 3*np.pi/2) <= angle_limit))
+                         (np.abs(dense_theta - 3*np.pi/2) <= angle_limit))
                 mask[block] = False
             elif ring_index in [6, 7]:
                 angle_limit = np.deg2rad(45)
                 block = ((np.abs(dense_theta - np.pi/2) <= angle_limit) |
-                        (np.abs(dense_theta - 3*np.pi/2) <= angle_limit))
+                         (np.abs(dense_theta - 3*np.pi/2) <= angle_limit))
                 mask[block] = False
 
             valid_theta = dense_theta[mask]
@@ -140,65 +100,67 @@ class IrisRingDivider:
 
         return theta[mask]  # valid angles only
 
-    def create_iris_code(self, radial_res=64, angular_res=512):
+    def create_iris_code(self, radial_res=64, angular_res=512, samples=128, gabor_freq=0.35, gabor_sigma=3):
         normalized = self.normalize_iris(radial_res, angular_res)
+        num_stripes = 8
+        gabor_sigma = 1 / (gabor_freq * 2 * np.pi)
 
-        # Apply Gabor filter (simple version, single frequency and angle)
-        real_response, imag_response = self.apply_gabor_filter(normalized, frequency=0.22, theta=0)
+        stripes = np.array_split(normalized, num_stripes, axis=0)
+        iris_code = []
 
-        # Initialize flattened iris code with alternating bits
-        iris_code = np.zeros((radial_res, angular_res * 2), dtype=np.uint8)
+        for stripe in stripes:
+            smoothed = gaussian_filter(stripe, sigma=1)
+            signal = smoothed.mean(axis=0)  # 1D signal: length angular_res
 
-        # Create bit masks
-        bit1 = (real_response > 0).astype(np.uint8)  # First bit
-        bit2 = (imag_response > 0).astype(np.uint8)  # Second bit
+            real_response, imag_response = gabor_filter_1d(signal, frequency=gabor_freq, sigma=gabor_sigma)
 
-        # Fill alternating positions
-        iris_code[:, 0::2] = bit1  # Even indices: 0, 2, 4, ..., 2N-2
-        iris_code[:, 1::2] = bit2  # Odd indices: 1, 3, 5, ..., 2N-1
+            # Divide into 128 equal segments and take mean of each segment
+            segment_length = angular_res // samples
+            interleaved_code = []
 
-        return iris_code
+            for i in range(samples):
+                start = i * segment_length
+                end = (i + 1) * segment_length if i < samples - 1 else angular_res
 
-    def display_iris_code(self, radial_res=64, angular_res=512):
-        iris_code = self.create_iris_code(radial_res, angular_res)  # shape: (radial_res, angular_res * 2)
+                real_mean = real_response[start:end].mean()
+                imag_mean = imag_response[start:end].mean()
 
-        num_horizontal = 8    # Display rows
-        num_vertical = 256    # Display columns
+                real_bit = int(real_mean > 0)
+                imag_bit = int(imag_mean > 0)
+                interleaved_code.extend([real_bit, imag_bit])  # alternating bit order
 
-        # Create the display matrix to match 8x256
-        display_image = np.zeros((num_horizontal, num_vertical), dtype=np.uint8)
+            iris_code.append(interleaved_code)  # length 256
 
-        for i in range(num_horizontal):
-            for j in range(num_vertical):
-                # Map i, j to the original code coordinates
-                # Correctly reflect the alternating bit logic
-                total_positions = angular_res  # because each bit-pair is linked to one angular step
-                bit_idx = j % 2  # even -> 0 (bit1), odd -> 1 (bit2)
-                angular_position = j // 2     # which original angular step to use
+        iris_code_array = np.array(iris_code, dtype=np.uint8).reshape((8, 256, 1))
+        return iris_code_array
 
-                # Clamp: in case num_vertical is odd
-                if angular_position >= angular_res:
-                    angular_position = angular_res - 1
 
-                # Map the vertical section to the radial resolution
-                row_idx = int(i * radial_res / num_horizontal)
+    def display_iris_code(self):
+        """
+        Visualizes the 8 x 256 x 1 iris code as a grayscale image.
+        Each stripe becomes a row, and interleaved bits are displayed as white (1) or black (0).
+        """
+        iris_code_array = self.create_iris_code()
+        # Remove the last dimension (reshape to 8 x 256)
+        display_image = iris_code_array.squeeze(axis=2)  # shape: (8, 256)
 
-                # Calculate the proper column in the flattened iris_code
-                col_idx = angular_position * 2 + bit_idx
-
-                display_image[i, j] = iris_code[row_idx, col_idx]
-
-        # Plot as a black & white image
         plt.figure(figsize=(12, 3))
         plt.imshow(display_image, cmap='gray', aspect='auto')
         plt.title("Iris Code Visualization (First, Second, First, Second Bits)")
         plt.axis('off')
         plt.show()
 
-
-
     def calculate_hamming_distance(self, code1, code2):
         if code1.shape != code2.shape:
             raise ValueError("Iris codes must have the same shape for Hamming distance calculation.")
         return np.sum(code1 != code2) / code1.size
 
+def gabor_filter_1d(signal, frequency=0.25, sigma=3):
+        length = len(signal)
+        x = np.arange(-length // 2, length // 2)
+        gabor_real = np.exp(-x**2 / (2 * sigma**2)) * np.cos(2 * np.pi * frequency * x)
+        gabor_imag = np.exp(-x**2 / (2 * sigma**2)) * np.sin(2 * np.pi * frequency * x)
+        gabor_real -= np.mean(gabor_real)
+        real_response = convolve1d(signal, gabor_real, mode='reflect')
+        imag_response = convolve1d(signal, gabor_imag, mode='reflect')
+        return real_response, imag_response
