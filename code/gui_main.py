@@ -204,14 +204,12 @@ class ImageProcessorGUI(QWidget):
             if image.dtype == bool or image.max() <= 1:
                 image = (image * 255).astype(np.uint8)
 
-            # 2. Jeśli obraz jest jednokanałowy (grayscale), konwertuj do BGR
             if len(image.shape) == 2 or (len(image.shape) == 3 and image.shape[2] == 1):
                 display_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             else:
                 display_image = image.copy()
             original_image = self.original_image.copy()
-            # Rysujemy okrąg: (image, center, radius, color, thickness)
-            cv2.circle(original_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
+            cv2.circle(original_image, (int(x), int(y)), int(r), (213, 0, 109), 2) 
             self.display_image(display_image, self.processed_label)
             self.display_image(original_image, self.original_label)
 
@@ -224,14 +222,12 @@ class ImageProcessorGUI(QWidget):
             if image.dtype == bool or image.max() <= 1:
                 image = (image * 255).astype(np.uint8)
 
-            # 2. Jeśli obraz jest jednokanałowy (grayscale), konwertuj do BGR
             if len(image.shape) == 2 or (len(image.shape) == 3 and image.shape[2] == 1):
                 display_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             else:
                 display_image = image.copy()
-            # Rysujemy okrąg: (image, center, radius, color, thickness)
             original_image = self.original_image.copy()
-            cv2.circle(original_image, (int(x), int(y)), int(r), (0, 255, 0), 2)  # zielony okrąg
+            cv2.circle(original_image, (int(x), int(y)), int(r), (213, 0, 109), 2) 
             self.display_image(display_image, self.processed_label)
             self.display_image(original_image, self.original_label)
             
@@ -242,14 +238,11 @@ class ImageProcessorGUI(QWidget):
             self.processed_image, x, y, r = self.image_processor.detect_iris()
             img, x_pupil, y_pupil, r_pupil = self.image_processor.detect_pupil()
 
-            # Weź aktualny obraz (np. grayscale)
             image = self.image_processor.image
 
             unwrapped = self.image_processor.unwrap_iris(image, (x, y), r_pupil, r)
 
             display_image = unwrapped.copy()
-
-            # Wyświetl na nowym labelu (upewnij się, że go masz!)
             self.display_image(display_image, self.unwrapped_label)
 
 
@@ -258,23 +251,19 @@ class ImageProcessorGUI(QWidget):
         if self.image_processor:    
             iris_code = self.image_processor.rings_division()
 
-            # Create a figure and axes for displaying iris code image
-            fig, ax = plt.subplots(figsize=(8, 1))  # Adjust size to fit QLabel
-            self.display_iris_code_in_gui(ax, iris_code)  # Use display_iris_code_in_gui to generate plot
-            ax.axis('off')  # Hide axes for clean display
+            fig, ax = plt.subplots(figsize=(8, 1)) 
+            self.display_iris_code_in_gui(ax, iris_code)  
+            ax.axis('off')
             fig.tight_layout(pad=0)
 
-            # Save the plot to a buffer
             buf = BytesIO()
             fig.savefig(buf, format='png')
             plt.close(fig)
             buf.seek(0)
 
-            # Convert buffer to QImage and then to QPixmap
             image = QImage.fromData(buf.getvalue())
             pixmap = QPixmap.fromImage(image)
 
-            # Set the pixmap to QLabel
             self.code_label.setPixmap(pixmap.scaled(self.code_label.size(), 
                                                     Qt.AspectRatioMode.KeepAspectRatio,
                                                     Qt.TransformationMode.SmoothTransformation))
@@ -289,25 +278,20 @@ class ImageProcessorGUI(QWidget):
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 self.display_image(img, self.processed_label)
 
-                # Generate iris codes using the updated intertwined version
                 iris_code1 = self.image_processor.rings_division()
                 iris_code2 = self.image_processor.rings_division(img)
 
-                # Calculate Hamming distance
                 hamming_distance = self.image_processor.calculate_hamming_distance(iris_code1, iris_code2)
 
-                # Create a dialog to display the result
                 dialog = QDialog(self)
                 dialog.setWindowTitle("Iris Code Comparison")
                 layout = QVBoxLayout(dialog)
 
-                # Create a Matplotlib figure for displaying iris codes
-                fig = Figure(figsize=(12, 6))  # Set a larger figure size for better clarity
+                fig = Figure(figsize=(12, 6))  
                 canvas = FigureCanvas(fig)
                 ax1 = fig.add_subplot(2, 1, 1)
                 ax2 = fig.add_subplot(2, 1, 2)
 
-                # Create images of iris codes like the first function
                 self.display_iris_code_in_gui(ax1, iris_code1)
                 ax1.set_title("Iris Code - Eye 1")
                 ax1.axis('off')
@@ -318,8 +302,7 @@ class ImageProcessorGUI(QWidget):
 
                 layout.addWidget(canvas)
 
-                # Add the Hamming distance label
-                if hamming_distance < 0.22:
+                if hamming_distance < 0.23:
                     label = QLabel(f"Hamming distance: {hamming_distance:.2f} — Iris codes match.")
                 else:
                     label = QLabel(f"Hamming distance: {hamming_distance:.2f} — Iris codes do not match.")
@@ -328,18 +311,16 @@ class ImageProcessorGUI(QWidget):
                 dialog.setLayout(layout)
                 dialog.exec()
 
+
     def display_iris_code_in_gui(self, ax, iris_code):
         """Displays the iris code (8x256) using Matplotlib on a given axis."""
-        # Remove the last dimension if present (reshape from (8, 256, 1) to (8, 256))
+
         if iris_code.ndim == 3 and iris_code.shape[2] == 1:
             iris_code = iris_code.squeeze(-1)
 
-        # Plot the iris code image on the provided axis
         ax.imshow(iris_code, cmap='gray', aspect='auto')
         ax.set_title("Iris Code")
         ax.axis('off')
-
-
 
 
     
